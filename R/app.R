@@ -44,34 +44,32 @@ ui <- fluidPage(
 server <- function(input, output, session){
   
   mytheme <- theme(
-    text = element_text(family = "serif", size = 14),
+    text = element_text(family = "serif", size = 18),
     panel.background = element_rect(fill = NA),
     panel.border = element_rect(fill = NA, color = "black"),
     legend.key = element_rect(fill = NA)
   )
+  years <- 2015:2019
   
   output$plot <- renderPlot({
     
+    # Filter to desired district:
+    plot_dat <- elk %>% 
+      filter(District == input$dist)
+    
     if (input$split == "Nothing"){
-      # Filtering to desired district:
-      plot_dat <- elk %>% 
-        filter(District == input$dist)
-      
-      #Actual plot:
       return(
         ggplot(plot_dat, aes(x = Year, y = N)) +
-          geom_line(size = 1) +
+          geom_line() +
+          geom_point(size = 2) +
           labs(
             title = paste("Elk harvest estimate for HD", input$dist),
             y = "Estimated harvest"
           ) +
+          scale_x_continuous(breaks = years, minor_breaks = F) +
           mytheme
       )
     } else {
-      # Filtering to desired district:
-      plot_dat <- elk %>% 
-        filter(District == input$dist)
-      
       # Defining y variable and split:
       if (input$split == "Sex") { 
         y_var <- sym("n_sex")
@@ -80,14 +78,15 @@ server <- function(input, output, session){
       } 
       split <- sym(input$split)
       
-      #Actual plot:
       return(
         ggplot(plot_dat, aes(x = Year, y = !!y_var)) +
-          geom_line(aes(color = !!split), size = 1) +
+          geom_line(aes(color = !!split)) +
+          geom_point(aes(color = !!split), size = 2) + 
           labs(
             title = paste("Elk harvest estimate for HD", input$dist),
             y = "Estimated harvest"
           ) +
+          scale_x_continuous(breaks = years, minor_breaks = F) +
           mytheme
       )
     }
