@@ -12,6 +12,9 @@ library(shinythemes)
 
 elk <- read.csv(text = getURL("https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/elk_harvest.csv"))
 elk$District <- as.character(elk$District)
+
+deer <- read.csv(text = getURL("https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/deer_harvest.csv"))
+deer$District <- as.character(deer$District)
 ################################################################################
 
 # UI ===========================================================================
@@ -24,10 +27,57 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       selectInput(
+        inputId = "ung_sp",
+        label = "Explore dharvest estimates for:",
+        choices = c("Deer", "Elk")
+      ),
+      sidebarPanel(
+        selectInput(
+          inputId = "sp",
+          label = "Explore dharvest estimates for:",
+          choices = c("Deer", "Elk")
+        ),
+        sliderInput(
+          inputID = "yr",
+          label = "Years:",
+          min = 2010,
+          max = 2019,
+          value = c(2010, 2019),
+          step = 1,
+          ticks = FALSE
+        ),
+      
+        # Need to make separate UI for each species because of differing data
+      conditionalPanel(
+        condition = "input.sp == Elk",
+        selectInput(
+          inputId = "dist",
+          label = "Hunting district(s) you want to see:",
+          choices = unique(elk$District),
+          multiple = TRUE
+        ),
+        selectInput(
+          inputId = "split",
+          label = "Split by:",
+          choices = c("Just the districts I chose" = "Nothing", 
+                      "Sex" = "Sex", 
+                      "Weapon type" = "Weapon"),
+        )
+      )
+    ),
+    
+    conditionalPanel(
+      condition = "input.sp == Deer",
+      selectInput(
         inputId = "dist",
         label = "Hunting district(s) you want to see:",
-        choices = unique(elk$District),
+        choices = unique(deer$District),
         multiple = TRUE
+      ),
+      selectInput(
+        inputId = "deer_sp",
+        label = "Species:",
+        choices = c("Whitetail", "Mule", "Combined")
       ),
       selectInput(
         inputId = "split",
@@ -36,7 +86,8 @@ ui <- fluidPage(
                     "Sex" = "Sex", 
                     "Weapon type" = "Weapon"),
       )
-    ),
+    )
+  ),
     
     mainPanel(
       plotOutput(outputId = "plot", height = 700, width = 1000),
@@ -62,8 +113,14 @@ server <- function(input, output, session){
   output$plot <- renderPlot({
     
     if (!is.null(input$dist)){
-      # Filter to desired district(s):
-      plot_dat <- elk[which(elk$District %in% input$dist), ]
+      #Generating a new dataset containing only selected variables:
+      
+      if (input$ung_sp == "Elk"){
+        plot_dat <- elk[which(elk$District %in% input$dist), ]
+      } else if (input$ung_sp == "Deer"){
+        plot_dat <- deer[which(deer$District %in% input$dist), ] %>% 
+          
+      }
       
       if (input$split == "Nothing"){
         return(
