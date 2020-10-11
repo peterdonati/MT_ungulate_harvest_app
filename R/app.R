@@ -32,7 +32,7 @@ ui <- fluidPage(
       selectInput(
         inputId = "split",
         label = "Split by:",
-        choices = c("Nothing" = "Nothing", 
+        choices = c("Just the districts I chose" = "Nothing", 
                     "Sex" = "Sex", 
                     "Weapon type" = "Weapon"),
       )
@@ -99,6 +99,18 @@ server <- function(input, output, session){
             mytheme
         )
       }
+    } else {
+      # Placeholder for when no district is chosen:
+      ggplot() +
+        annotate("text", 
+                 label = "Pick a district!", 
+                 x = .5, y= .5, 
+                 size = 16,
+                 family = "serif") +
+        theme_void() +
+        theme(
+          panel.border = element_rect(fill = NA, color = "black")
+        )
     }
   })
 }
