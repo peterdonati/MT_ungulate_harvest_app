@@ -45,6 +45,7 @@ ui <- fluidPage(
                                         "Elk" = "elk",
                                         "Antelope" = "ant")
                           ),
+                          uiOutput("deer_sp"),
                           sliderInput(
                             inputId = "yr",
                             label = "Years",
@@ -61,7 +62,6 @@ ui <- fluidPage(
                             choices = NULL,
                             multiple = TRUE
                           ),
-                          uiOutput("deer_sp"),
                           uiOutput("split"),
                           sliderInput("height", "Plot height", 
                                       min = 500, 
@@ -78,81 +78,81 @@ ui <- fluidPage(
              
              # Search by criteria ==============================================
              tabPanel("Search by criteria",
-                      fluidRow(
-                        column(3,
-                               selectInput(
-                                 inputId = "ung_sp_2",
-                                 label = "Species",
-                                 choices = c("Deer" = "deer", 
-                                             "Elk" = "elk",
-                                             "Antelope" = "ant")
-                               )
+                      sidebarLayout(
+                        sidebarPanel(
+                          selectInput(
+                            inputId = "ung_sp_2",
+                            label = "Species",
+                            choices = c("Deer" = "deer", 
+                                        "Elk" = "elk",
+                                        "Antelope" = "ant")
+                          ),
+                          uiOutput("deer_sp_2"),
+                          sliderInput(
+                            inputId = "yr_2",
+                            label = "Years",
+                            min = 2010,
+                            max = 2019,
+                            value = c(2010, 2019),
+                            step = 1,
+                            ticks = FALSE,
+                            sep = ""
+                          ),
+                          sliderInput(
+                            "avg_hvst",
+                            "Average total harvest",
+                            min = 0,
+                            max = 1,
+                            value = c(0,1),
+                            step = 1,
+                            ticks = F,
+                            sep = ""
+                          ),
+                          selectInput(
+                            "arrange",
+                            "Arrange by",
+                            choices = NULL
+                          ),
+                          checkboxInput(
+                            "descend",
+                            "Descending?",
+                            TRUE
+                          ),
+                          downloadButton("download", "Download .csv")
                         ),
-                        column(6,
-                               sliderInput(
-                                 inputId = "yr_2",
-                                 label = "Years",
-                                 min = 2010,
-                                 max = 2019,
-                                 value = c(2010, 2019),
-                                 step = 1,
-                                 ticks = FALSE,
-                                 sep = ""
-                               )
-                        )
-                      ),
-                      fluidRow(
-                        column(3,
-                               uiOutput("deer_sp_2")
-                        )
-                      ),
-                      fluidRow(
-                        column(3,
-                               sliderInput(
-                                 "avg_hvst",
-                                 "Average total harvest",
-                                 min = 0,
-                                 max = 1,
-                                 value = c(0,1),
-                                 step = 1,
-                                 ticks = F,
-                                 sep = ""
-                               )
-                        ),
-                        column(2,
-                               selectInput(
-                                 "arrange",
-                                 "Arrange by",
-                                 choices = NULL
-                               )
-                        ),
-                        column(1,
-                               checkboxInput(
-                                 "descend",
-                                 "Descending?",
-                                 TRUE
-                               )
-                        )
-                      ),
-                      fluidRow(
-                        column(12,
-                               tableOutput("filtered_hvst_dat")
+                        
+                        mainPanel(
+                          tableOutput("filtered_hvst_dat")
                         )
                       )
              ),
              
              # About ===========================================================
              tabPanel("About",
-                      textOutput("about")
+                        tags$h1("About the project"),
+                      tags$div(
+                        "All raw data on past harvest estimates comes",
+                        tags$a(href="https://myfwp.mt.gov/fwpPub/harvestReports", 
+                               "from FWP")
+                        ),
+                        tags$div(
+                          "The exact data and source code used in this app can be accessed",
+                          tags$a(href="https://github.com/peterdonati/MT_ungulate_harvest_app", 
+                                 "here at my GitHub")
+                        ),
+                      tags$h1("Contact"),
+                        HTML("<p>Any errors, suggestions, or questions can be 
+                             sent to p.donati11@gmail.com</p>")
+                      
              )
   )
 )
-
-
+  
+  
 # server =======================================================================
 server <- function(input, output, session){
   
-  # Search by ditrict tab ======================================================
+  # SEARCH BY DISTRICT TAB ======================================================
   # UI for split data (FWP doesn't publish weapon type for antelope)
   output$split <- renderUI({
     if (input$ung_sp != "ant"){
@@ -284,7 +284,7 @@ server <- function(input, output, session){
   } else {""}
   })
   
-  # Search by criteria tab =====================================================
+  # SEARCH BY CRITERIA TAB =====================================================
   
   output$deer_sp_2 <- renderUI({
     if (input$ung_sp_2 == "deer"){
@@ -298,7 +298,7 @@ server <- function(input, output, session){
     }
   })
   
-  #Updating avg. harvest slider ================================================
+  #Updating avg. harvest slider:
   observeEvent(c(input$ung_sp_2, input$yr_2, input$deer_sp_2), {
     
     yrs_2 <- input$yr_2[[1]]:input$yr_2[[2]]
@@ -322,7 +322,7 @@ server <- function(input, output, session){
     )
   })
   
-  # Updating arrange choices ===================================================
+  # Updating arrange choices:
   observeEvent(input$ung_sp_2, {
     
     if (input$ung_sp_2 == "deer"){
@@ -350,24 +350,25 @@ server <- function(input, output, session){
       )
     }
   })
-
   
-  output$filtered_hvst_dat <- renderTable({
-    
+  #
+
+  # Creation of table ==========================================================
+  user_dat <- reactive({
     yrs_2 <- input$yr_2[[1]]:input$yr_2[[2]]
     
     dat <- filter(h_dat, ung == input$ung_sp_2)
     dat <- pivot_wider(
       dat, c(-Weapon, -n_weapon), names_from = Sex, values_from = n_sex
-      )
+    )
     dat <- dat[which(dat$Year %in% yrs_2), ]
+    # FWP puts 0's in years they don't estimate hunter effort......:
     dat$Hunter <- case_when(dat$Hunters == 0 ~ NA_integer_)
-    
-    # Deer =====================================================================
     
     # Had to add !is.null... because following evaluates before deer_sp_2 has a 
     # value, and then throws an error briefly for when it tries to filter by it
     if (input$ung_sp_2 == "deer"  && !is.null(input$deer_sp_2)){
+      # Deer ----
       
       dat <- filter(dat, Species == input$deer_sp_2)
       
@@ -404,7 +405,7 @@ server <- function(input, output, session){
       
     } else if (input$ung_sp_2 == "elk"){
       
-      # elk ====================================================================
+      # Elk ----
       dat <- dat %>% 
         group_by(District) %>% 
         summarise(
@@ -437,7 +438,7 @@ server <- function(input, output, session){
       
     } else if (input$ung_sp_2 == "ant"){
       
-      # antelope ===============================================================
+      # Antelope ----
       dat <- dat %>% 
         group_by(District) %>% 
         summarise(
@@ -468,10 +469,22 @@ server <- function(input, output, session){
                       "Avg. doe harvest")
       
     }
-    dat
+    return(dat)
   })
-}
   
+  # Output of table ----
+  output$filtered_hvst_dat <- renderTable({user_dat()})
+  
+  # Download output ----
+  output$download <- downloadHandler(
+    filename = function() {
+      paste0(input$ung_sp_2, "_harvest", ".csv")
+    },
+    content = function(file) {
+      write.csv(user_dat(), file, row.names = FALSE)
+    }
+  )
+}
 
 # The app ======================================================================
 shinyApp(ui, server)
