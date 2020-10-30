@@ -141,8 +141,8 @@ ui <- fluidPage(
                                  "here at my GitHub")
                         ),
                       tags$h1("Contact"),
-                        HTML("<p>Any errors, suggestions, or questions can be 
-                             sent to p.donati11@gmail.com</p>")
+                        HTML("<p>Send me your errors, suggestions, or questions!
+                             </br>p.donati11@gmail.com</p>")
                       
              )
   )
@@ -362,8 +362,6 @@ server <- function(input, output, session){
       dat, c(-Weapon, -n_weapon), names_from = Sex, values_from = n_sex
     )
     dat <- dat[which(dat$Year %in% yrs_2), ]
-    # FWP puts 0's in years they don't estimate hunter effort......:
-    dat$Hunter <- case_when(dat$Hunters == 0 ~ NA_integer_)
     
     # Had to add !is.null... because following evaluates before deer_sp_2 has a 
     # value, and then throws an error briefly for when it tries to filter by it

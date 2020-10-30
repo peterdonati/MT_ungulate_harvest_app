@@ -97,4 +97,13 @@ t_ant <- rename(
 # Joining together =============================================================
 
 t_all <- bind_rows(t_deer, t_elk, t_ant)
+
+
+# # FWP puts 0's in years they don't estimate hunter effort......:
+t_all$Hunters[which(t_all$Hunters == 0)] <- NA_integer_
+
+t_all <- t_all %>%
+  mutate(p_success = (N / Hunters) * 100)
+
 write.csv(t_all, "harvest_dat.csv", row.names = FALSE)
+
