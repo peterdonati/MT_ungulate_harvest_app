@@ -328,25 +328,28 @@ server <- function(input, output, session){
     if (input$ung_sp_2 == "deer"){
       updateSelectInput(
         session, "arrange",
-        choices = c("Avg. total harvest" = "N",
-                    "Avg. buck harvest" = "n_buck",
-                    "Avg 4+ pt buck harvest" = "n_four_plus",
-                    "Avg. hunter effort" = "n_hunter")
+        choices = c("Total harvest" = "N",
+                    "Buck harvest" = "n_buck",
+                    "4+ pt buck harvest" = "n_four_plus",
+                    "Hunter effort" = "n_hunter",
+                    "Success rate" = "p_success")
       )
     } else if (input$ung_sp_2 == "elk"){
       updateSelectInput(
         session, "arrange",
-        choices = c("Avg. total harvest" = "N",
-                    "Avg. bull harvest" = "n_bull",
-                    "Avg 6+ pt bull harvest" = "n_six_plus",
-                    "Avg. hunter effort" = "n_hunter")
+        choices = c("Total harvest" = "N",
+                    "Bull harvest" = "n_bull",
+                    "6+ pt bull harvest" = "n_six_plus",
+                    "Hunter effort" = "n_hunter",
+                    "Success rate" = "p_success")
       )
     } else if (input$ung_sp_2 == "ant"){
       updateSelectInput(
         session, "arrange",
-        choices = c("Avg. total harvest" = "N",
-                    "Avg. buck harvest" = "n_buck",
-                    "Avg. hunter effort" = "n_hunter")
+        choices = c("Total harvest" = "N",
+                    "Buck harvest" = "n_buck",
+                    "Hunter effort" = "n_hunter",
+                    "Success rate" = "p_success")
       )
     }
   })
@@ -381,6 +384,7 @@ server <- function(input, output, session){
           n_buck = mean(Bucks),
           n_doe = mean(Does),
           n_four_plus = mean(four_plus),
+          p_success = mean(p_success, na.rm = TRUE),
           .groups = "drop"
         )
       
@@ -397,9 +401,10 @@ server <- function(input, output, session){
       }
       
       names(dat) <- c("District", "From", "To", "Deer species", 
-                      "Avg. number of hunters throughout season", 
+                      "Avg. # of hunters per season", 
                       "Avg. total harvest", "Avg. buck harvest", 
-                      "Avg. doe harvest", "Avg. 4+ pt. buck harvest")
+                      "Avg. doe harvest", "Avg. 4+ pt. buck harvest",
+                      "Avg. success rate (% per hunter)")
       
     } else if (input$ung_sp_2 == "elk"){
       
@@ -414,6 +419,7 @@ server <- function(input, output, session){
           n_bull = mean(Bulls),
           n_cow = mean(Cows),
           n_six_plus = mean(six_plus),
+          p_success = mean(p_success, na.rm = TRUE),
           .groups = "drop"
         )
       
@@ -430,9 +436,10 @@ server <- function(input, output, session){
       }
       
       names(dat) <- c("District", "From", "To", 
-                      "Avg. number of hunters throughout season", 
+                      "Avg. # of hunters per season", 
                       "Avg. total harvest", "Avg. bull harvest", 
-                      "Avg. cow harvest", "Avg. 6+ pt. bull harvest")
+                      "Avg. cow harvest", "Avg. 6+ pt. bull harvest",
+                      "Avg. success rate (% per hunter)")
       
     } else if (input$ung_sp_2 == "ant"){
       
@@ -446,6 +453,7 @@ server <- function(input, output, session){
           N = mean(N),
           n_buck = mean(Bucks),
           n_doe = mean(Does),
+          p_success = mean(p_success, na.rm = TRUE),
           .groups = "drop"
         )
       
@@ -462,9 +470,9 @@ server <- function(input, output, session){
       }
       
       names(dat) <- c("District", "From", "To", 
-                      "Avg. number of hunters throughout season", 
+                      "Avg. # of hunters per season", 
                       "Avg. total harvest", "Avg. buck harvest", 
-                      "Avg. doe harvest")
+                      "Avg. doe harvest", "Avg. success rate (% per hunter)")
       
     }
     return(dat)
