@@ -2,7 +2,7 @@
 #
 # Shiny app for MT ungulate harvest
 #
-################################################################################
+# Setup ########################################################################
 library(shiny)
 library(RCurl)
 library(dplyr)
@@ -13,7 +13,6 @@ library(tidyr)
 
 h_dat <- read.csv(text = getURL("https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/harvest_dat.csv"))
 h_dat$District <- as.character(h_dat$District)
-################################################################################
 
 # UI ===========================================================================
 ui <- fluidPage(
@@ -38,14 +37,19 @@ ui <- fluidPage(
              tabPanel("Search by district",
                       sidebarLayout(
                         sidebarPanel(
+                          
                           selectInput(
-                            inputId = "ung_sp",
-                            label = "Species",
-                            choices = c("Deer" = "deer", 
-                                        "Elk" = "elk",
-                                        "Antelope" = "ant")
+                            "ung_sp",
+                            "Species",
+                            choices = c(
+                              "Deer" = "deer", 
+                              "Elk" = "elk",
+                              "Antelope" = "ant"
+                            )
                           ),
+                          
                           uiOutput("deer_sp"),
+                          
                           sliderInput(
                             inputId = "yr",
                             label = "Years",
@@ -56,17 +60,30 @@ ui <- fluidPage(
                             ticks = FALSE,
                             sep = ""
                           ),
+                          
                           selectInput(
                             inputId = "dist",
                             label = "Districts",
                             choices = NULL,
                             multiple = TRUE
                           ),
+                          
+                          selectInput(
+                            "yaxis",
+                            "Y axis",
+                            choices = c(
+                              "Harvest" = "N",
+                              "Hunter effort" = "Hunters",
+                              "Success rate" = "p_success"
+                            )
+                          ),
+                          
                           uiOutput("split"),
                           sliderInput("height", "Plot height", 
                                       min = 500, 
                                       max = 1000, 
                                       value = 600),
+                          
                           verbatimTextOutput("nodata")
                         ),
                         
@@ -80,6 +97,7 @@ ui <- fluidPage(
              tabPanel("Search by criteria",
                       sidebarLayout(
                         sidebarPanel(
+                          
                           selectInput(
                             inputId = "ung_sp_2",
                             label = "Species",
@@ -87,7 +105,9 @@ ui <- fluidPage(
                                         "Elk" = "elk",
                                         "Antelope" = "ant")
                           ),
+                          
                           uiOutput("deer_sp_2"),
+                          
                           sliderInput(
                             inputId = "yr_2",
                             label = "Years",
@@ -98,6 +118,7 @@ ui <- fluidPage(
                             ticks = FALSE,
                             sep = ""
                           ),
+                          
                           sliderInput(
                             "avg_hvst",
                             "Average total harvest",
@@ -108,16 +129,19 @@ ui <- fluidPage(
                             ticks = F,
                             sep = ""
                           ),
+                          
                           selectInput(
                             "arrange",
                             "Arrange by",
                             choices = NULL
                           ),
+                          
                           checkboxInput(
                             "descend",
                             "Descending?",
                             TRUE
                           ),
+                          
                           downloadButton("download", "Download .csv")
                         ),
                         
@@ -129,32 +153,33 @@ ui <- fluidPage(
              
              # About ===========================================================
              tabPanel("About",
-                        tags$h1("About the project"),
+                      tags$h1("About the project"),
                       tags$div(
                         "All raw data on past harvest estimates comes",
                         tags$a(href="https://myfwp.mt.gov/fwpPub/harvestReports", 
                                "from FWP")
-                        ),
-                        tags$div(
-                          "The exact data and source code used in this app can be accessed",
-                          tags$a(href="https://github.com/peterdonati/MT_ungulate_harvest_app", 
-                                 "here at my GitHub")
-                        ),
+                      ),
+                      tags$div(
+                        "The exact data and source code used in this app can be accessed",
+                        tags$a(href="https://github.com/peterdonati/MT_ungulate_harvest_app", 
+                               "here at my GitHub")
+                      ),
                       tags$h1("Contact"),
-                        HTML("<p>Send me your errors, suggestions, or questions!
+                      HTML("<p>Send me your errors, suggestions, or questions!
                              </br>p.donati11@gmail.com</p>")
                       
              )
   )
 )
-  
-  
+
+
 # server =======================================================================
 server <- function(input, output, session){
   
   # SEARCH BY DISTRICT TAB ======================================================
   # UI for split data (FWP doesn't publish weapon type for antelope)
   output$split <- renderUI({
+    if(input$yaxis == "N"){
     if (input$ung_sp != "ant"){
       selectInput(
         inputId = "split",
@@ -168,8 +193,9 @@ server <- function(input, output, session){
         choices = c("Nothing", "Sex")
       )
     }
+    }
   })
-    
+  
   # Need to show this UI if looking at deer harvest:
   output$deer_sp <- renderUI({
     if (input$ung_sp == "deer"){
@@ -204,11 +230,11 @@ server <- function(input, output, session){
     width = 850,
     height = function() input$height,
     {
-    
-    # Later used in scale_x_continuous() to standardize x axis for when
-    # districts are missing data for some years:
-    years <- input$yr[[1]]:input$yr[[2]]
-    
+      
+      # Later used in scale_x_continuous() to standardize x axis for when
+      # districts are missing data for some years:
+      years <- input$yr[[1]]:input$yr[[2]]
+      
       #Generate a new dataset containing only selected variables:
       plot_dat <- filter(h_dat, ung == input$ung_sp)
       plot_dat <- plot_dat[which(plot_dat$Year %in% years), ]
@@ -216,59 +242,98 @@ server <- function(input, output, session){
       if (input$ung_sp == "deer"){
         plot_dat <- filter(plot_dat, Species == input$deer_sp)
       }
-    
-    if (!is.null(input$dist)){
       
-      # GRAPH FOR EFFORT OR NO SPLIT:
-      if (input$split == "Nothing" || is.null(input$split)){
+      if (!is.null(input$dist)){
         
-        return(
-          ggplot(plot_dat, aes(x = Year, y = N, color = District)) +
-            geom_line() +
-            geom_point(size = 2) +
-            labs(
-              y = "Estimated harvest"
-            ) +
-            scale_x_continuous(breaks = years, minor_breaks = F) +
-            mytheme
-        )
+        # Harvest plot ----
+        if (input$yaxis == "N"){
+          # GRAPH FOR EFFORT OR NO SPLIT:
+          if (input$split == "Nothing" || is.null(input$split)){
+            
+            return(
+              ggplot(plot_dat, aes(x = Year, y = N, color = District)) +
+                geom_line() +
+                geom_point(size = 2) +
+                labs(
+                  y = "Estimated harvest"
+                ) +
+                scale_x_continuous(breaks = years, minor_breaks = F) +
+                mytheme
+            )
+          } else {
+            
+            # GRAPH FOR SPLITS:
+            # Defining y variable and split:
+            if (input$split == "Sex") { 
+              y_var <- sym("n_sex")
+            } else if (input$split == "Weapon") {
+              y_var <- sym("n_weapon")
+            } 
+            split <- sym(input$split)
+            
+            return(
+              ggplot(plot_dat, aes(x = Year, y = !!y_var)) +
+                geom_line(aes(linetype = !!split)) +
+                geom_point(size = 2) + 
+                facet_wrap(~District, ncol = 2) +
+                labs(
+                  y = "Estimated harvest"
+                ) +
+                scale_x_continuous(breaks = years, minor_breaks = F) +
+                mytheme
+            )
+          }
+        } else if(input$yaxis == "Hunters"){
+          # Hunter effort plot ----
+          
+          plot_dat <- plot_dat[which(!is.na(plot_dat$Hunters)), ]
+          
+          return(
+            ggplot(plot_dat, aes(x = Year, y = Hunters, color = District)) +
+              geom_line() +
+              geom_point(size = 2) +
+              labs(
+                y = "# of hunters per season"
+              ) +
+              scale_x_continuous(
+                breaks = c(unique(plot_dat$Year)), 
+                minor_breaks = NULL) +
+              mytheme
+          )
+        } else if (input$yaxis == "p_success"){
+          # % success plot ----
+          
+          plot_dat <- plot_dat[which(!is.na(plot_dat$Hunters)), ]
+          
+          return(
+            ggplot(plot_dat, aes(x = Year, y = p_success, color = District)) +
+              geom_line() +
+              geom_point(size = 2) +
+              labs(
+                y = "Success rate per hunter"
+              ) +
+              scale_x_continuous(
+                breaks = c(unique(plot_dat$Year)), 
+                minor_breaks = NULL) +
+              scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+              mytheme
+          )
+        } 
       } else {
         
-        # GRAPH FOR SPLITS:
-        # Defining y variable and split:
-        if (input$split == "Sex") { 
-          y_var <- sym("n_sex")
-        } else if (input$split == "Weapon") {
-          y_var <- sym("n_weapon")
-        } 
-        split <- sym(input$split)
-        
-        return(
-          ggplot(plot_dat, aes(x = Year, y = !!y_var)) +
-            geom_line(aes(linetype = !!split)) +
-            geom_point(size = 2) + 
-            facet_wrap(~District, ncol = 2) +
-            labs(
-              y = "Estimated harvest"
-            ) +
-            scale_x_continuous(breaks = years, minor_breaks = F) +
-            mytheme
-        )
+        # Placeholder for when no district is chosen:
+        ggplot() +
+          annotate("text", 
+                   label = "Plot created once district chosen", 
+                   x = 0, y = 0, 
+                   size = 7,
+                   family = "serif") +
+          theme_void() +
+          theme(
+            panel.border = element_rect(fill = NA, color = "black")
+          )
       }
-    } else {
-      # Placeholder for when no district is chosen:
-      ggplot() +
-        annotate("text", 
-                 label = "Plot created once district chosen", 
-                 x = 0, y = 0, 
-                 size = 7,
-                 family = "serif") +
-        theme_void() +
-        theme(
-          panel.border = element_rect(fill = NA, color = "black")
-        )
-    }
-  })
+    })
 
   output$nodata <- renderText({
   yr_test <- input$yr[[1]]:input$yr[[2]]
