@@ -35,17 +35,17 @@ ui <- fluidPage(
              
              # Home ============================================================
              tabPanel("Home",
-                      h3(strong("Welcome!")),
+                      h1(span("Welcome!", style = "color:#08529c")),
                       div(
-                        "This app allows you to explore past hunter harvest and 
-                        effort estimates made by Montana FWP since 2004.", 
+                        "This app allows you to explore past elk and deer 
+                        harvest estimates made by Montana FWP since 2004.", 
                         br(), 
                         br(),
-                        "Navigating to the", strong("'District Visuals'"), "tab 
+                        "Navigating to the", strong("District Visuals"), "tab 
                         above allows you to create visualizations for specific 
                         hunting districts.",
                         br(),
-                        "Navigating to the", strong("'Summary Tables'"), "tab 
+                        "Navigating to the", strong("Summary Tables"), "tab 
                         allows you to search, arrange, and download a .csv 
                         based on the criteria you enter."
                       )
@@ -163,10 +163,11 @@ ui <- fluidPage(
                             TRUE
                           ),
                           
-                          downloadButton("download", "Download .csv")
+                          downloadButton("download", "download csv")
                         ),
                         
                         mainPanel(
+                          span(textOutput("bigtable"), style="color:#408edb"),
                           tableOutput("filtered_hvst_dat")
                         )
                       )
@@ -397,7 +398,7 @@ server <- function(input, output, session){
   })
 
   # Creation of table ==========================================================
-  user_dat <- reactive({
+  table_out <- reactive({
     yrs_2 <- input$yr_2[[1]]:input$yr_2[[2]]
     
     dat <- filter(h_dat, ung == input$ung_sp_2)
@@ -448,24 +449,39 @@ server <- function(input, output, session){
                     "Avg. # of hunters per season",
                     "Avg. total harvest", "Category",
                     "Avg. harvest for category",
-                    "Avg. Proportion of hunters\n that are successful")
+                    "Avg. Proportion of hunters that are successful")
     if (input$ung_sp_2 == "elk"){
       dat <- dat[ ,-4]
     }
     
+    if (nrow(dat) > 25){
+      output$bigtable <- renderText({
+        paste0("Preview of first 25 rows.\n",
+              "To see all ", nrow(dat), " rows of data, use the download csv button")
+      })
+    } else if (nrow(dat) <= 25){
+      output$bigtable <- NULL
+    }
     return(dat)
   })
-
+  
   # Output of table ----
+  user_dat <- reactive({
+    if (nrow(table_out()) > 25){
+      return(head(table_out(), 25))
+    } else if (nrow(table_out()) <= 25){
+      return(table_out())
+    }
+  })
   output$filtered_hvst_dat <- renderTable({user_dat()})
-
+  
   # Download output ----
   output$download <- downloadHandler(
     filename = function() {
       paste0(input$ung_sp_2, "_harvest", ".csv")
     },
     content = function(file) {
-      write.csv(user_dat(), file, row.names = FALSE)
+      write.csv(table_out(), file, row.names = FALSE)
     }
   )
 }
