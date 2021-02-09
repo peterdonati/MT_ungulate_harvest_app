@@ -449,6 +449,9 @@ server <- function(input, output, session){
                     "Avg. total harvest", "Category",
                     "Avg. harvest for category",
                     "Avg. Proportion of hunters\n that are successful")
+    if (input$ung_sp_2 == "elk"){
+      dat <- dat[ ,-4]
+    }
     
     return(dat)
   })
