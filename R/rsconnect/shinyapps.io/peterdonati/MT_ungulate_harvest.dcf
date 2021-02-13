@@ -5,8 +5,8 @@ account: peterdonati
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2964296
-bundleId: 4202419
+bundleId: 4219295
 url: https://peterdonati.shinyapps.io/MT_ungulate_harvest/
-when: 1612900322.64728
+when: 1613246534.36477
 asMultiple: FALSE
 asStatic: FALSE

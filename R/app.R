@@ -12,7 +12,7 @@ library(tidyr)
 
 h_dat <- read.csv("https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/harvest_dat.csv")
 h_dat$District <- as.character(h_dat$District)
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UI ===========================================================================
 ui <- fluidPage(
   
@@ -152,8 +152,7 @@ ui <- fluidPage(
                             choices = c(
                               "Total harvest" = "T_harvest",
                               "Hunter effort" = "Hunters",
-                              "Success rate" = "p_success",
-                              "Category and category harvest" = "group"
+                              "Success rate" = "p_success"
                             )
                           ),
                           
@@ -167,6 +166,7 @@ ui <- fluidPage(
                         ),
                         
                         mainPanel(
+                          div(span(strong("Values represent averages across selected years"), style = "color:#08529c")),
                           span(textOutput("bigtable"), style="color:#408edb"),
                           tableOutput("filtered_hvst_dat")
                         )
@@ -430,34 +430,29 @@ server <- function(input, output, session){
                     & T_harvest <= input$avg_hvst[[2]])
     }
     
-    if (input$arrange != "group"){
-      targ_arrange <- sym(input$arrange)
-      if (input$descend == FALSE){
-        dat <- arrange(dat, !!targ_arrange)
-      } else if (input$descend == TRUE){
-        dat <- arrange(dat, desc(!!targ_arrange))
-      } 
-    } else if (input$arrange == "group"){
-      if (input$descend == FALSE){
-        dat <- arrange(dat, group, group_harvest)
-      } else if (input$descend == TRUE){
-        dat <- arrange(dat, group, desc(group_harvest))
-      }
-    }
+    dat <- pivot_wider(dat, names_from = group, values_from = group_harvest)
     
-    names(dat) <- c("District", "From", "To", "Deer species",
-                    "Avg. # of hunters per season",
-                    "Avg. total harvest", "Category",
-                    "Avg. harvest for category",
-                    "Avg. Proportion of hunters that are successful")
+    targ_arrange <- sym(input$arrange)
+    if (input$descend){
+      dat <- arrange(dat, desc(!!targ_arrange))
+    } else if (!input$descend){
+      dat <- arrange(dat, !!targ_arrange)
+    } 
+    
+    names(dat)[1:7] <- c("District", "From", "To", "Deer species",
+                         "# of hunters per season",
+                         "Total harvest", "Hunter success rate")
     if (input$ung_sp_2 == "elk"){
       dat <- dat[ ,-4]
+      names(dat)[11] <- "6+ point"
+    } else if (input$ung_sp_2 == "deer"){
+      names(dat)[11] <- "4+ point"
     }
     
     if (nrow(dat) > 25){
       output$bigtable <- renderText({
         paste0("Preview of first 25 rows.\n",
-              "To see all ", nrow(dat), " rows of data, use the download csv button")
+               "To see all ", nrow(dat), " rows of data, use the download csv button")
       })
     } else if (nrow(dat) <= 25){
       output$bigtable <- NULL
