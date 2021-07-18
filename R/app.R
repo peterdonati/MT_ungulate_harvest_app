@@ -5,478 +5,397 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(shiny)
 library(dplyr)
+library(DT)
 library(ggplot2)
 library(rlang)
-library(shinythemes)
+library(bslib)
 library(tidyr)
+source("helpers.R")
 
-h_dat <- read.csv("https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/harvest_dat.csv")
-h_dat$District <- as.character(h_dat$District)
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+deer_dat <- read.csv(
+  "https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/tidy_deer.csv",
+  colClasses = c(
+    "integer", "character", "character", "integer", "integer", "integer", 
+    "integer", "integer", "integer", "integer", "double"
+  )
+)
+elk_dat <- read.csv(
+  "https://raw.githubusercontent.com/peterdonati/MT_ungulate_harvest_app/main/Datasets/tidy_elk.csv",
+  colClasses = c(
+    "integer", "character", "integer", "integer", "integer", "integer", 
+    "integer", "integer", "integer", "double"
+  )
+)
+
 # UI ===========================================================================
 ui <- fluidPage(
   
-  # Google analytics ===========================================================
-  tags$head(HTML(
-    "<!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src='https://www.googletagmanager.com/gtag/js?id=UA-180466253-1'></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+  tags$head(includeHTML("google_analytics.html")),
   
-  gtag('config', 'UA-180466253-1');
-  </script>"
-  )),
+  theme = bs_theme(
+    base_font = list(font_google("Raleway"), "Segoe UI", "serif"), 
+    bootswatch = "flatly"
+  ),
   
-  theme = shinytheme("yeti"),
-  
-  navbarPage("Montana ungulate harvest",
-             
-             # Home ============================================================
-             tabPanel("Home",
-                      h1(span("Welcome!", style = "color:#08529c")),
-                      div(
-                        "This app allows you to explore past elk and deer 
-                        harvest estimates made by Montana FWP since 2004.", 
-                        br(), 
-                        br(),
-                        "Navigating to the", strong("District Visuals"), "tab 
-                        above allows you to create visualizations for specific 
-                        hunting districts.",
-                        br(),
-                        "Navigating to the", strong("Summary Tables"), "tab 
-                        allows you to search, arrange, and download a .csv 
-                        based on the criteria you enter."
-                      )
-             ),
-             
-             # District Visuals ================================================
-             tabPanel("District Visuals",
-                      sidebarLayout(
-                        sidebarPanel(
-                          
-                          selectInput(
-                            "ung_sp",
-                            "Species",
-                            choices = c(
-                              "Deer" = "deer", 
-                              "Elk" = "elk"
-                            )
-                          ),
-                          
-                          uiOutput("deer_sp"),
-                          
-                          sliderInput(
-                            inputId = "yr",
-                            label = "Years",
-                            min = 2004,
-                            max = 2019,
-                            value = c(2004, 2019),
-                            step = 1,
-                            ticks = FALSE,
-                            sep = ""
-                          ),
-                          
-                          selectInput(
-                            inputId = "dist",
-                            label = "Hunting District",
-                            choices = NULL,
-                            multiple = TRUE
-                          ),
-                          
-                          selectInput(
-                            "yaxis",
-                            "Y axis",
-                            choices = c(
-                              "Harvest" = "T_harvest",
-                              "Hunter effort" = "Hunters",
-                              "Success rate" = "p_success"
-                            )
-                          ),
-                          
-                          uiOutput("split"),
-                          sliderInput("height", "Plot height", 
-                                      min = 300, 
-                                      max = 1000, 
-                                      value = 400),
-                          
-                          verbatimTextOutput("nodata")
-                        ),
-                        
-                        mainPanel(
-                          plotOutput(outputId = "plot")
-                        )
-                      )
-             ),
-             
-             # Summary Tables ==================================================
-             tabPanel("Summary Tables",
-                      sidebarLayout(
-                        sidebarPanel(
-                          
-                          selectInput(
-                            inputId = "ung_sp_2",
-                            label = "Species",
-                            choices = c("Deer" = "deer", 
-                                        "Elk" = "elk")
-                          ),
-                          
-                          uiOutput("deer_sp_2"),
-                          
-                          sliderInput(
-                            inputId = "yr_2",
-                            label = "Years",
-                            min = 2004,
-                            max = 2019,
-                            value = c(2004, 2019),
-                            step = 1,
-                            ticks = FALSE,
-                            sep = ""
-                          ),
-                          
-                          sliderInput(
-                            "avg_hvst",
-                            "Average total harvest",
-                            min = 0,
-                            max = 1,
-                            value = c(0,1),
-                            step = 1,
-                            ticks = F,
-                            sep = ""
-                          ),
-                          
-                          selectInput(
-                            "arrange",
-                            "Arrange by",
-                            choices = c(
-                              "Total harvest" = "T_harvest",
-                              "Hunter effort" = "Hunters",
-                              "Success rate" = "p_success"
-                            )
-                          ),
-                          
-                          checkboxInput(
-                            "descend",
-                            "Descending?",
-                            TRUE
-                          ),
-                          
-                          downloadButton("download", "download csv")
-                        ),
-                        
-                        mainPanel(
-                          div(span(strong("Values represent averages across selected years"), style = "color:#08529c")),
-                          span(textOutput("bigtable"), style="color:#408edb"),
-                          tableOutput("filtered_hvst_dat")
-                        )
-                      )
-             ),
-             
-             # About ===========================================================
-             tabPanel("About",
-                      tags$h1("About the project"),
-                      tags$div(
-                        "All raw data on past harvest estimates comes",
-                        tags$a(href="https://myfwp.mt.gov/fwpPub/harvestReports", 
-                               "from FWP")
-                      ),
-                      tags$div(
-                        "The exact data and source code used in this app can be accessed",
-                        tags$a(href="https://github.com/peterdonati/MT_ungulate_harvest_app", 
-                               "here at my GitHub")
-                      ),
-                      tags$h1("Contact"),
-                      HTML("<p>Send me your errors, suggestions, or questions!
-                             </br>p.donati11@gmail.com</p>")
-             )
+  navbarPage(
+    NULL,
+    
+    tabPanel(
+      NULL, icon = icon("home"),
+      h1("Montana Deer & Elk Harvest App"),
+      p(
+        "This app allows you to explore past deer and elk 
+        harvest estimates made by Montana FWP since 2004.", 
+        br(), 
+        br(),
+        "To create visuals and tables for specific hunting 
+        districts, head to the", strong("Deer"), "or", 
+        strong("Elk"), "tabs above.",
+        br(),
+        "Navigate to the", strong("Summary Tables"), "tab 
+        to discover productive districts."
+      ),
+      br(),
+      br(),
+      div(style = "border-bottom: 5px solid #314859; padding-bottom: 50px")
+    ),
+    
+    tabPanel(
+      "Deer",
+      plot_ui("d", deer_dat)
+    ),
+    tabPanel(
+      "Elk",
+      plot_ui("e", elk_dat)
+    ),
+    
+    tabPanel(
+      "Summary Tables",
+      div(
+        h5("Values in table are averages across chosen years."),
+        style = "color: #314859"
+      ),
+      hr(),
+      sidebarLayout(
+        sidebarPanel(
+          width = 3,
+          selectInput("st_ung", "Species", choices = c("Deer", "Elk")),
+          uiOutput("st_deer_sp"),
+          selectInput(
+            "st_reg", 
+            "Specific Region(s)", 
+            choices = c("1", "2", "3", "4", "5", "6", "7"),
+            multiple = TRUE
+          ),
+          sliderInput(
+            inputId = "st_yr",
+            label = "Years",
+            min = 2004,
+            max = 2020,
+            value = c(2004, 2020),
+            step = 1,
+            ticks = FALSE,
+            sep = ""
+          ),
+          downloadButton(
+            "st_download", 
+            ".csv download", 
+            icon = icon("fas fa-file-download")
+          )
+        ),
+        mainPanel(
+          width = 9,
+          div(
+            DTOutput("st"), 
+            style = "font-family:Arial, Helvetica, serif; font-size:12px;
+            border-radius: 4px; border-style: solid; border-color: #c9c9c9;
+            border-width: 1px 1px 3px 1px; padding: 2px"
+          )
+        )
+      )
+    ),
+    
+    tabPanel(
+      "About",
+      h1("About the project"),
+      p(
+        "All raw data on past harvest estimates comes",
+        tags$a(href= "https://myfwp.mt.gov/fwpPub/harvestReports", "from FWP"),
+        br(),
+        "The exact data and source code used in this app can be accessed",
+        tags$a(href= "https://github.com/peterdonati/MT_ungulate_harvest_app", "here at my GitHub"),
+      ),
+      h1("Contact"),
+      p(
+        "Send me your errors, suggestions, or questions!",
+        br(),
+        tags$i(class = "far fa-paper-plane"), "p.donati11@gmail.com",
+        br(),
+        tags$i(class = "fab fa-github"),
+        tags$a(href = "https://github.com/peterdonati", "peterdonati")
+      ),
+      hr(),
+      br(),
+      h4("Updates"),
+      p("July 2021:",
+        tags$ul(
+          tags$li("Added data for 2020 harvest estimates"),
+          tags$li("Removed misleading success percentages
+                  when looking at specific deer species"),
+          tags$li("Added separate elk and deer tabs for side by side 
+                  comparisons of plots"),
+          tags$li("Added table outputs to see the data behind plots"),
+          tags$li("Visual improvements"),
+          style = "font-size: 12px"
+        )
+      ),
+      div(style = "border-bottom: 5px solid #314859; padding-bottom: 50px")
+    )
   )
 )
 
 # server =======================================================================
 server <- function(input, output, session){
   
-  # District Visuals tab =======================================================
-  # UI for split data (FWP doesn't publish weapon type for antelope)
-  output$split <- renderUI({
-    if(input$yaxis == "T_harvest"){
+  # Deer ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  output$d_split <- renderUI({
+    if(input$d_yaxis == "total_harvest"){
       selectInput(
-        inputId = "split",
-        label = "Split",
+        inputId = "d_split",
+        label = "Split harvest by",
+        choices = c("Nothing", "Weapon", "Sex")
+      )
+    }
+  })
+  observeEvent(input$d_sp, {
+    if (input$d_sp != "all_deer"){
+      updateSelectInput(
+        session, 
+        "d_yaxis",
+        choices = c(
+          "Harvest" = "total_harvest",
+          "Hunters" = "hunters"
+        )
+      )
+    } else {
+      updateSelectInput(
+        session, 
+        "d_yaxis",
+        choices = c(
+          "Harvest" = "total_harvest",
+          "Hunters" = "hunters",
+          "Success rate" = "success_rate_per_hunter"
+        )
+      )
+      
+    }
+  })
+  
+  filt_deer <- reactive({
+    d_years <- input$d_yr[[1]]:input$d_yr[[2]]
+    d_out <- subset(
+      deer_dat, 
+      license_year %in% d_years &
+        hunting_district %in% input$d_dist &
+        deer_species %in% input$d_sp
+    )
+    if (input$d_sp != "all_deer"){
+      d_out <- select(d_out, !success_rate_per_hunter)
+    }
+    return(d_out)
+  })
+  
+  output$d_table <- renderDT(
+    {filt_deer()}, 
+    rownames = F,
+    fillContainer = TRUE,
+    options = list(
+      scrollY = "500px",
+      columnDefs = list(list(className = "dt-right", targets = "_all"))
+    )
+  )
+  
+  d_plot <- reactive({
+    d_plot_dat <- filt_deer()
+    
+    if (!is.null(input$d_dist)){
+      if (input$d_yaxis == "total_harvest"){
+        if (input$d_split == "Nothing" || is.null(input$d_split)){
+          d_total_harvest <- plot_total_harvest(d_plot_dat)
+          return(d_total_harvest)
+        } else if (input$d_split == "Sex") {
+          d_plot_dat <- pivot_longer(
+            d_plot_dat, 
+            c("bucks", "does"),
+            names_to = "sex",
+            values_to = "s_harv"
+          )
+          d_s_harvest <- plot_sex_harvest(d_plot_dat)
+          return(d_s_harvest)
+        } else if (input$d_split == "Weapon") {
+          d_plot_dat <- pivot_longer(
+            d_plot_dat, 
+            c("bow", "rifle"),
+            names_to = "weapon",
+            values_to = "w_harv"
+          )
+          d_w_harvest <- plot_weapon_harvest(d_plot_dat)
+          return(d_w_harvest)
+        }
+      } else if(input$d_yaxis == "hunters"){
+        d_plot_dat <- na.omit(d_plot_dat)
+        d_hunters <- plot_hunters(d_plot_dat)
+      return(d_hunters)
+      } else if (input$d_yaxis == "success_rate_per_hunter"){
+        d_plot_dat <- na.omit(d_plot_dat)
+        d_success <- plot_success(d_plot_dat)
+        return(d_success)
+      } 
+    } else {
+      plot_empty()
+    }
+  })
+  
+  output$d_plot <- renderPlot({d_plot()}, width = 700, res = 96,
+                              height = function() input$d_height)
+  
+  # Elk ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  output$e_split <- renderUI({
+    if(input$e_yaxis == "total_harvest"){
+      selectInput(
+        inputId = "e_split",
+        label = "Split harvest by",
         choices = c("Nothing", "Weapon", "Sex")
       )
     }
   })
   
-  # Need to show this UI if looking at deer harvest:
-  output$deer_sp <- renderUI({
-    if (input$ung_sp == "deer"){
-      selectInput(
-        inputId = "deer_sp",
-        label = "Deer species",
-        choices = c("Combined" = "all_deer",
-                    "Whitetail" = "wt", 
-                    "Mule" = "md")
-      )
-    }
+  filt_elk <- reactive({
+    e_years <- input$e_yr[[1]]:input$e_yr[[2]]
+    e_out <- subset(
+      elk_dat, 
+      license_year %in% e_years &
+        hunting_district %in% input$e_dist
+    )
+    return(e_out)
   })
   
-  # Update input$dist choices according to species:
-  district_choice <- reactive({
-    filter(h_dat, ung == input$ung_sp)
-  })
-  observeEvent(district_choice(), {
-    updateSelectInput(session, "dist",
-                      choices = unique(district_choice()$District))
-  })
-  
-  mytheme <- theme(
-    text = element_text(family = "serif", size = 16),
-    panel.background = element_blank(),
-    panel.border = element_rect(fill = NA, color = "black"),
-    legend.key = element_blank()
+  output$e_table <- renderDT(
+    {filt_elk()}, 
+    rownames = F,
+    fillContainer = TRUE,
+    options = list(
+      scrollY = "500px",
+      columnDefs = list(list(className = "dt-right", targets = "_all"))
+    )
   )
   
-  # Plot creation:
-  output$plot <- renderPlot(
-    width = 700,
-    height = function() input$height,
-    {
-      # Grab the years to plot:
-      years <- input$yr[[1]]:input$yr[[2]]
-      
-      #Generate a new dataset containing only selected variables:
-      plot_dat <- filter(h_dat, ung == input$ung_sp)
-      plot_dat <- plot_dat[which(plot_dat$Year %in% years), ]
-      plot_dat <- plot_dat[which(plot_dat$District %in% input$dist), ]
-      if (input$ung_sp == "deer"){
-        plot_dat <- filter(plot_dat, Species == input$deer_sp)
-      }
-      
-      if (!is.null(input$dist)){
-        # Harvest plot ----
-        if (input$yaxis == "T_harvest"){
-          # GRAPH FOR EFFORT OR NO SPLIT:
-          if (input$split == "Nothing" || is.null(input$split)){
-            
-            return(
-              ggplot(plot_dat, aes(x = Year, y = T_harvest, color = District)) +
-                geom_line() +
-                geom_point() +
-                labs(
-                  y = "Estimated harvest"
-                ) +
-                scale_x_continuous(minor_breaks = NULL) +
-                mytheme
-            )
-          } else {
-            
-            # GRAPH FOR SPLITS:
-            # Defining y variable and split:
-            if (input$split == "Sex") { 
-              plot_dat <- filter(
-                plot_dat, 
-                group %in% c("Bucks", "Does", "Bulls", "Cows")
-              )
-            } else if (input$split == "Weapon") {
-              plot_dat <- filter(
-                plot_dat, 
-                group %in% c("Rifle", "Bow")
-              )
-            } 
-
-            return(
-              ggplot(plot_dat, aes(x = Year, y = group_harvest)) +
-                geom_line(aes(linetype = group)) +
-                geom_point() + 
-                facet_wrap(~District, ncol = 2) +
-                labs(
-                  y = "Estimated harvest",
-                  linetype = input$split
-                ) +
-                scale_x_continuous(minor_breaks = NULL) +
-                mytheme
-            )
-          }
-        } else if(input$yaxis == "Hunters"){
-          # Hunter effort plot ----
-          plot_dat <- plot_dat[which(!is.na(plot_dat$Hunters)), ]
-          
-          return(
-            ggplot(plot_dat, aes(x = Year, y = Hunters, color = District)) +
-              geom_line(na.rm = TRUE) +
-              geom_point(na.rm = TRUE) +
-              labs(
-                y = "# of hunters per season"
-              ) +
-              scale_x_continuous(minor_breaks = NULL) +
-              mytheme
-          )
-        } else if (input$yaxis == "p_success"){
-          # % success plot ----
-          plot_dat <- plot_dat[which(!is.na(plot_dat$Hunters)), ]
-          
-          return(
-            ggplot(plot_dat, aes(x = Year, y = p_success, color = District)) +
-              geom_line(na.rm = TRUE) +
-              geom_point(na.rm = TRUE) +
-              labs(
-                y = "Success rate per hunter"
-              ) +
-              scale_x_continuous(minor_breaks = NULL) +
-              scale_y_continuous(labels = scales::percent_format()) +
-              mytheme
-          )
-        } 
-      } else {
-        
-        # Placeholder for when no district is chosen:
-        ggplot() +
-          annotate("text", 
-                   label = "Plot created once district chosen", 
-                   x = 0, y = 0, 
-                   size = 7,
-                   family = "serif") +
-          theme_void() +
-          theme(
-            panel.border = element_blank()
-          )
-      }
-    })
-  
-  # when data is missing for selection:
-  output$nodata <- renderText({
-    yr_test <- input$yr[[1]]:input$yr[[2]]
+  output$e_plot <- renderPlot({
+    e_plot_dat <- filt_elk()
     
-    dist_test <- filter(h_dat, ung == input$ung_sp)
-    dist_test <- dist_test[which(dist_test$Year %in% yr_test), ]
-    
-    if (!all(input$dist %in% dist_test$District)){
-      paste0("No data for district ",
-             paste(input$dist[which(!input$dist %in% dist_test$District)], 
-                   collapse = " or "),
-             " for selected years\n")
-    } else {""}
-  })
+    if (!is.null(input$e_dist)){
+      if (input$e_yaxis == "total_harvest"){
+        if (input$e_split == "Nothing" || is.null(input$e_split)){
+          e_total_harvest <- plot_total_harvest(e_plot_dat)
+          return(e_total_harvest)
+        } else if (input$e_split == "Sex") {
+          e_plot_dat <- pivot_longer(
+            e_plot_dat, 
+            c("bulls", "cows"),
+            names_to = "sex",
+            values_to = "s_harv"
+          )
+          e_s_harvest <- plot_sex_harvest(e_plot_dat)
+          return(e_s_harvest)
+        } else if (input$e_split == "Weapon") {
+          e_plot_dat <- pivot_longer(
+            e_plot_dat, 
+            c("bow", "rifle"),
+            names_to = "weapon",
+            values_to = "w_harv"
+          )
+          e_w_harvest <- plot_weapon_harvest(e_plot_dat)
+          return(e_w_harvest)
+        }
+      } else if(input$e_yaxis == "hunters"){
+        e_plot_dat <- na.omit(e_plot_dat)
+        e_hunters <- plot_hunters(e_plot_dat)
+        return(e_hunters)
+      } else if (input$e_yaxis == "success_rate_per_hunter"){
+        e_plot_dat <- na.omit(e_plot_dat)
+        e_success <- plot_success(e_plot_dat)
+        return(e_success)
+      } 
+    } else {
+      plot_empty()
+    }
+  },
+  width = 700,
+  res = 96,
+  height = function() input$e_height
+  )
   
-  # Summary Table tab ==========================================================
-  
-  output$deer_sp_2 <- renderUI({
-    if (input$ung_sp_2 == "deer"){
+  # Summary Table ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  output$st_deer_sp <- renderUI({
+    if (input$st_ung == "Deer"){
       selectInput(
-        inputId = "deer_sp_2",
+        inputId = "st_deer_sp",
         label = "Deer species",
-        choices = c("Combined" = "all_deer",
-                    "Whitetail" = "wt",
-                    "Mule" = "md")
+        choices = c("Combined" = "all_deer", "Whitetail" = "wt", "Mule" = "md")
       )
     }
   })
-
-  #Updating avg. harvest slider:
-  observeEvent(c(input$ung_sp_2, input$yr_2, input$deer_sp_2), {
-
-    yrs_2 <- input$yr_2[[1]]:input$yr_2[[2]]
-
-    targ_sp <- filter(h_dat, ung == input$ung_sp_2)
-    targ_sp <- targ_sp[which(targ_sp$Year %in% yrs_2), ]
-
-    if (input$ung_sp_2 == "deer" & !is.null(input$deer_sp_2)){
-      targ_sp <- filter(targ_sp, Species == input$deer_sp_2)
+  
+  st <- reactive({
+    # !is.null() avoids error in lag while rendering st_deer_sp ui above:
+    if (input$st_ung == "Deer" && !is.null(input$st_deer_sp)){
+      st_dat <- subset(deer_dat, deer_species %in% input$st_deer_sp)
+      if (input$st_deer_sp != "all_deer"){
+        st_dat <- select(st_dat, !success_rate_per_hunter) # All N/A's anyways
+      }
+    } else {
+      st_dat <- elk_dat
     }
-
-    targ_sp <- targ_sp %>%
-      group_by(District) %>%
-      summarise(mean_harvest = mean(T_harvest), .groups = "drop")
-
-    updateSliderInput(session, "avg_hvst",
-                      min = round(min(targ_sp$mean_harvest), 0) - 1,
-                      max = round(max(targ_sp$mean_harvest), 0) + 1,
-                      value = c((min(targ_sp$mean_harvest)) - 1,
-                                (max(targ_sp$mean_harvest) +1))
+    region_expr <- paste0("^", input$st_reg, collapse = "|")
+    st_dat <- st_dat[grep(region_expr, st_dat$hunting_district), ]
+    st_yrs <- input$st_yr[1]:input$st_yr[2]
+    st_dat <- subset(st_dat, license_year %in% st_yrs)
+    st_dat <- select(st_dat, !license_year) # don't want to take average of this
+    st_dat <- st_dat %>% 
+      group_by(hunting_district) %>% 
+      summarise(across(is.numeric, mean, na.rm = T)) %>% 
+      mutate(
+        across(is.numeric, round, 2),
+        from = input$st_yr[1], 
+        to = input$st_yr[2]
+        ) %>% 
+      select(hunting_district, from, to, everything())
+      
+    return(st_dat)
+  })
+  
+  output$st <- renderDT(
+    {st()},
+    rownames = FALSE,
+    fillContainer = TRUE,
+    options = list(
+      scrollY = "500px",
+      paging = FALSE,
+      columnDefs = list(list(className = "dt-right", targets = "_all"))
     )
-  })
-
-  # Creation of table ==========================================================
-  table_out <- reactive({
-    yrs_2 <- input$yr_2[[1]]:input$yr_2[[2]]
-    
-    dat <- filter(h_dat, ung == input$ung_sp_2)
-    dat <- dat[which(dat$Year %in% yrs_2), ]
-    
-    # Had to add !is.null. because following evaluates before deer_sp_2 has a
-    # value, and then throws an error briefly for when it tries to filter by it
-    if (input$ung_sp_2 == "deer" & !is.null(input$deer_sp_2)){
-      dat <- filter(dat, Species == input$deer_sp_2)
-    }
-    
-    dat <- dat %>%
-      group_by(group, District) %>%
-      summarise(
-        Yr_start = input$yr_2[[1]],
-        Yr_end = input$yr_2[[2]],
-        deer_sp = Species[[1]],
-        Hunters = mean(Hunters, na.rm = TRUE),
-        T_harvest = mean(T_harvest),
-        group_harvest = mean(group_harvest),
-        p_success = mean(p_success, na.rm = TRUE),
-        .groups = "drop"
-      )
-    dat <- select(dat, District, Yr_start, Yr_end, deer_sp, Hunters, 
-                  T_harvest, group, group_harvest, p_success)
-    
-    if (!is.null(input$avg_hvst)){
-      dat <- filter(dat, T_harvest >= input$avg_hvst[[1]] 
-                    & T_harvest <= input$avg_hvst[[2]])
-    }
-    
-    dat <- pivot_wider(dat, names_from = group, values_from = group_harvest)
-    
-    targ_arrange <- sym(input$arrange)
-    if (input$descend){
-      dat <- arrange(dat, desc(!!targ_arrange))
-    } else if (!input$descend){
-      dat <- arrange(dat, !!targ_arrange)
-    } 
-    
-    names(dat)[1:7] <- c("District", "From", "To", "Deer species",
-                         "# of hunters per season",
-                         "Total harvest", "Hunter success rate")
-    if (input$ung_sp_2 == "elk"){
-      dat <- dat[ ,-4]
-      names(dat)[11] <- "6+ point"
-    } else if (input$ung_sp_2 == "deer"){
-      names(dat)[11] <- "4+ point"
-    }
-    
-    if (nrow(dat) > 25){
-      output$bigtable <- renderText({
-        paste0("Preview of first 25 rows.\n",
-               "To see all ", nrow(dat), " rows of data, use the download csv button")
-      })
-    } else if (nrow(dat) <= 25){
-      output$bigtable <- NULL
-    }
-    return(dat)
-  })
+  )
   
-  # Output of table ----
-  user_dat <- reactive({
-    if (nrow(table_out()) > 25){
-      return(head(table_out(), 25))
-    } else if (nrow(table_out()) <= 25){
-      return(table_out())
-    }
-  })
-  output$filtered_hvst_dat <- renderTable({user_dat()})
-  
-  # Download output ----
-  output$download <- downloadHandler(
-    filename = function() {
-      paste0(input$ung_sp_2, "_harvest", ".csv")
+  output$st_download <- downloadHandler(
+    filename = function(){
+      if (input$st_ung == "Deer" && !is.null(input$st_deer_sp)){
+        paste0(input$st_deer_sp, "_", input$st_yr[1], "-", input$st_yr[2], 
+               ".csv")
+      } else {
+        paste0(input$st_ung, "_", input$st_yr[1], "-", input$st_yr[2], ".csv")
+      }
     },
-    content = function(file) {
-      write.csv(table_out(), file, row.names = FALSE)
+    content = function(file){
+      write.csv(st(), file, row.names = F)
     }
   )
 }
