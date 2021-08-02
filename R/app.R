@@ -129,10 +129,11 @@ ui <- fluidPage(
       p(
         "Send me your errors, suggestions, or questions!",
         br(),
-        tags$i(class = "far fa-paper-plane"), "p.donati11@gmail.com",
+        tags$i(class = "far fa-paper-plane"), 
+        tags$a(href = "mailto:p.donati11@gmail.com", "p.donati11@gmail.com"),
         br(),
         tags$i(class = "fab fa-github"),
-        tags$a(href = "https://github.com/peterdonati", "peterdonati")
+        tags$a(href = "https://github.com/peterdonati/MT_ungulate_harvest_app", "peterdonati")
       ),
       hr(),
       br(),

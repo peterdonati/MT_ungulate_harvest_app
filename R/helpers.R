@@ -118,7 +118,7 @@ plot_sex_harvest <- function(this_dat){
     geom_line(aes(linetype = sex)) +
     facet_wrap(~hunting_district, ncol = 2) +
     labs(x = "Year", y = "Estimated harvest", linetype = "Sex") +
-    scale_x_continuous(minor_breaks = FALSE) +
+    scale_x_continuous(breaks = good_breaks) +
     mytheme
 }
 
